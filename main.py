@@ -27,25 +27,25 @@ def LIF_sNeuron(membrane_potential, threshold, l):
     # generate spike
     out = SpikingNN.apply(ex_membrane)
     # decay
-    membrane_potential = l * membrane_potential.detach() + membrane_potential - membrane_potential.detach()
+    membrane_potential = l * membrane_potential.detach()
     out = out.detach() + torch.div(out, threshold) - torch.div(out, threshold).detach()
 
-    return out
+    return out , membrane_potential
 class Network(torch.nn.Module):
     def __init__(self,timesteps):
         super(Network, self).__init__() #What this is for really???!
         self.conv1 = torch.nn.Conv2d(128,128,3,1,1)
         self.fc1   = torch.nn.Linear(2048,512)
         self.dropout = torch.nn.Dropout(0.25)
-        self.threshold = 10
-        self.leak = 0.4
+        self.threshold = 1
+        self.leak = 0.9
         self.timesteps = timesteps
     def forward(self, input):
         membrane = torch.nn.parameter.Parameter(torch.zeros(1, 128, 32, 32).cuda(), requires_grad=False)
         output = torch.nn.parameter.Parameter(torch.zeros(input.size(0), self.timesteps, 128, 32, 32).cuda(), requires_grad=False)
         for t in range(self.timesteps):
             membrane = membrane + self.conv1(input[:,t,:,:,:])
-            output[:,t,:,:,:] =  LIF_sNeuron(membrane, self.threshold, self.leak)
+            output[:,t,:,:,:],  membrane=  LIF_sNeuron(membrane, self.threshold, self.leak)
         return output
 
 def main():
@@ -64,8 +64,8 @@ def main():
     batch_size = args.batch_size
     model = Network(timesteps).to(device)
     
-    # weight_density = [100,80,60,50,20,5,1,0.1]
-    weight_density = [1]
+    weight_density = [100,80,60,50,20,10,5]
+    # weight_density = [1]
     out_density = []
     in_density = []
     w_density = []
@@ -77,7 +77,7 @@ def main():
     for j in weight_density:
         drop_weight= torch.nn.Dropout(1-j/100)
         model.conv1.weight = torch.nn.parameter.Parameter(drop_weight(model.conv1.weight))   
-        for i in range (100):
+        for i in range (1,100):
             drop_input = torch.nn.Dropout(1-i/100)
             x = drop_input(input).bool()
             x = x*1.0
@@ -99,7 +99,6 @@ def main():
         header.append(row)
         if row == 'WS':
             break
-
     ''' Initializing keys of a dictionary to add the values later.
         It is conviniet to genrate csv file with the layer specification permutation.
         '''
@@ -123,8 +122,6 @@ def main():
     '''Converting initialized dictionary into Pandas data frame'''
     data = pd.DataFrame.from_dict(layer)
     data.to_csv('layersweep.csv', sep=',', index=False)
-
-
 
 
 if __name__ == '__main__':
