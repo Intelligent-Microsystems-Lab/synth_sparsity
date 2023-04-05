@@ -1,0 +1,11 @@
+#crc log files
+/logs/
+/.fuse_hidden*
+# Temp files created by most text editors
+*~
+/.vscode/
+# vim swap files
+.*.sw?
+.sw?
+# Compiled Python files
+__pycache__/
